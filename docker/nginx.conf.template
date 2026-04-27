@@ -14,6 +14,12 @@ http {
         root /var/www/html;
         index index.php index.html;
 
+        # Simple health endpoint for platform checks.
+        location = /health {
+            access_log off;
+            return 200 "ok\n";
+        }
+
         # WordPress permalinks
         location / {
             try_files $uri $uri/ /index.php?$args;
