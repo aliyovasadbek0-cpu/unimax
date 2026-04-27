@@ -6,9 +6,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p /var/log/apache2
 
-# Ensure only prefork MPM is enabled (mod_php requires this).
-RUN rm -f /etc/apache2/mods-enabled/mpm_event.load /etc/apache2/mods-enabled/mpm_event.conf /etc/apache2/mods-enabled/mpm_worker.load /etc/apache2/mods-enabled/mpm_worker.conf && \
-    a2enmod mpm_prefork
+# Ensure exactly one MPM is enabled (prefork for mod_php).
+RUN a2dismod -f mpm_event mpm_worker mpm_prefork >/dev/null 2>&1 || true && \
+    a2enmod mpm_prefork >/dev/null
 
 # Listen on both 80 and 8080 to avoid platform port-mapping mismatches.
 RUN grep -q '^Listen 8080$' /etc/apache2/ports.conf || echo 'Listen 8080' >> /etc/apache2/ports.conf && \
