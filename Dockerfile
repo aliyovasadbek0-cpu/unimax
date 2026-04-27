@@ -10,13 +10,18 @@ RUN apt-get update && \
 RUN rm -f /etc/apache2/mods-enabled/mpm_event.load /etc/apache2/mods-enabled/mpm_event.conf /etc/apache2/mods-enabled/mpm_worker.load /etc/apache2/mods-enabled/mpm_worker.conf && \
     a2enmod mpm_prefork
 
-# Railway domain/service in this project is configured for port 8080.
-RUN sed -i 's/^Listen 80$/Listen 8080/' /etc/apache2/ports.conf && \
-    sed -i 's/<VirtualHost \\*:80>/<VirtualHost *:8080>/' /etc/apache2/sites-available/000-default.conf && \
+# Listen on both 80 and 8080 to avoid platform port-mapping mismatches.
+RUN grep -q '^Listen 8080$' /etc/apache2/ports.conf || echo 'Listen 8080' >> /etc/apache2/ports.conf && \
+    cp /etc/apache2/sites-available/000-default.conf /etc/apache2/sites-available/000-default-8080.conf && \
+    sed -i 's/<VirtualHost \\*:80>/<VirtualHost *:8080>/' /etc/apache2/sites-available/000-default-8080.conf && \
+    a2ensite 000-default-8080 >/dev/null && \
     sed -i '1i ServerName localhost' /etc/apache2/apache2.conf && \
-    sed -i '/<VirtualHost \\*:8080>/a\\    php_admin_value auto_prepend_file none' /etc/apache2/sites-available/000-default.conf && \
+    sed -i '/<VirtualHost \\*:80>/a\\    php_admin_value auto_prepend_file none' /etc/apache2/sites-available/000-default.conf && \
+    sed -i '/<VirtualHost \\*:8080>/a\\    php_admin_value auto_prepend_file none' /etc/apache2/sites-available/000-default-8080.conf && \
     sed -i 's|ErrorLog \\${APACHE_LOG_DIR}/error.log|ErrorLog /proc/self/fd/2|' /etc/apache2/sites-available/000-default.conf && \
-    sed -i 's|CustomLog \\${APACHE_LOG_DIR}/access.log combined|CustomLog /proc/self/fd/1 combined|' /etc/apache2/sites-available/000-default.conf
+    sed -i 's|CustomLog \\${APACHE_LOG_DIR}/access.log combined|CustomLog /proc/self/fd/1 combined|' /etc/apache2/sites-available/000-default.conf && \
+    sed -i 's|ErrorLog \\${APACHE_LOG_DIR}/error.log|ErrorLog /proc/self/fd/2|' /etc/apache2/sites-available/000-default-8080.conf && \
+    sed -i 's|CustomLog \\${APACHE_LOG_DIR}/access.log combined|CustomLog /proc/self/fd/1 combined|' /etc/apache2/sites-available/000-default-8080.conf
 
 # Install WP-CLI for safe serialized search-replace after SQL import.
 RUN curl -fsSL -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
@@ -49,6 +54,7 @@ RUN chown -R www-data:www-data /var/www/html
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+EXPOSE 80
 EXPOSE 8080
 
 # Run entrypoint, then start Apache (CMD)
