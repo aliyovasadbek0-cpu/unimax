@@ -90,10 +90,16 @@ disable_broken_aio_security_plugin() {
   # If the plugin's PHP vendor files are missing, WP will fatally crash.
   AIO_PLUGIN_DIR="/var/www/html/wp-content/plugins/all-in-one-wp-security-and-firewall"
   AIO_VENDOR_FILE="/var/www/html/wp-content/plugins/all-in-one-wp-security-and-firewall/vendor/team-updraft/common-libs/src/updraft-semaphore/class-updraft-semaphore.php"
+  AIO_DISABLED_DIR="/var/www/html/wp-content/plugins/all-in-one-wp-security-and-firewall.disabled"
   if [ ! -f "$AIO_VENDOR_FILE" ]; then
     if [ -d "$AIO_PLUGIN_DIR" ]; then
       echo "AIOWPS vendor files are missing; disabling plugin to prevent 500 crash."
-      mv "$AIO_PLUGIN_DIR" "${AIO_PLUGIN_DIR}.disabled"
+      rm -rf "$AIO_DISABLED_DIR" 2>/dev/null || true
+      mv "$AIO_PLUGIN_DIR" "$AIO_DISABLED_DIR" 2>/dev/null || true
+      # If move still fails (cross-device/overlay corner-cases), hard-delete source dir.
+      if [ -d "$AIO_PLUGIN_DIR" ]; then
+        rm -rf "$AIO_PLUGIN_DIR" 2>/dev/null || true
+      fi
     fi
   fi
 }

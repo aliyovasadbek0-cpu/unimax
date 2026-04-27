@@ -6,6 +6,14 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p /var/log/apache2
 
+# Ensure only prefork MPM is enabled (mod_php requires this).
+RUN a2dismod mpm_event mpm_worker || true && \
+    a2enmod mpm_prefork
+
+# Railway domain/service in this project is configured for port 8080.
+RUN sed -i 's/^Listen 80$/Listen 8080/' /etc/apache2/ports.conf && \
+    sed -i 's/<VirtualHost \\*:80>/<VirtualHost *:8080>/' /etc/apache2/sites-available/000-default.conf
+
 # Install WP-CLI for safe serialized search-replace after SQL import.
 RUN curl -fsSL -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
     chmod +x /usr/local/bin/wp
@@ -37,7 +45,7 @@ RUN chown -R www-data:www-data /var/www/html
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-EXPOSE 80
+EXPOSE 8080
 
 # Run entrypoint, then start Apache (CMD)
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
