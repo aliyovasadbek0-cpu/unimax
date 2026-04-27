@@ -11,9 +11,9 @@ if ( isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FO
 	$_SERVER['HTTPS'] = 'on';
 }
 
-// Keep URL stable on Railway (no env variables).
-define('WP_HOME', 'https://unimax-production-c86b.up.railway.app');
-define('WP_SITEURL', 'https://unimax-production-c86b.up.railway.app');
+// Fixed production URL on Railway.
+define( 'WP_HOME', 'https://unimax-production-c86b.up.railway.app' );
+define( 'WP_SITEURL', 'https://unimax-production-c86b.up.railway.app' );
 
 /**
  * Основные параметры WordPress.
