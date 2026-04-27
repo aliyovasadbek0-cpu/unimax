@@ -1,27 +1,10 @@
-FROM wordpress:6.5-php8.2-apache
+FROM wordpress:6.5-php8.2-fpm
 ARG CACHEBUST=1
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates default-mysql-client && \
+    apt-get install -y --no-install-recommends nginx supervisor ca-certificates default-mysql-client && \
     rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /var/log/apache2
-
-# Ensure exactly one MPM is enabled (prefork for mod_php).
-RUN a2dismod -f mpm_event mpm_worker mpm_prefork >/dev/null 2>&1 || true && \
-    a2enmod mpm_prefork >/dev/null
-
-# Listen on both 80 and 8080 to avoid platform port-mapping mismatches.
-RUN grep -q '^Listen 8080$' /etc/apache2/ports.conf || echo 'Listen 8080' >> /etc/apache2/ports.conf && \
-    cp /etc/apache2/sites-available/000-default.conf /etc/apache2/sites-available/000-default-8080.conf && \
-    sed -i 's/<VirtualHost \\*:80>/<VirtualHost *:8080>/' /etc/apache2/sites-available/000-default-8080.conf && \
-    a2ensite 000-default-8080 >/dev/null && \
-    sed -i '1i ServerName localhost' /etc/apache2/apache2.conf && \
-    sed -i '/<VirtualHost \\*:80>/a\\    php_admin_value auto_prepend_file none' /etc/apache2/sites-available/000-default.conf && \
-    sed -i '/<VirtualHost \\*:8080>/a\\    php_admin_value auto_prepend_file none' /etc/apache2/sites-available/000-default-8080.conf && \
-    sed -i 's|ErrorLog \\${APACHE_LOG_DIR}/error.log|ErrorLog /proc/self/fd/2|' /etc/apache2/sites-available/000-default.conf && \
-    sed -i 's|CustomLog \\${APACHE_LOG_DIR}/access.log combined|CustomLog /proc/self/fd/1 combined|' /etc/apache2/sites-available/000-default.conf && \
-    sed -i 's|ErrorLog \\${APACHE_LOG_DIR}/error.log|ErrorLog /proc/self/fd/2|' /etc/apache2/sites-available/000-default-8080.conf && \
-    sed -i 's|CustomLog \\${APACHE_LOG_DIR}/access.log combined|CustomLog /proc/self/fd/1 combined|' /etc/apache2/sites-available/000-default-8080.conf
+    mkdir -p /run/php /var/log/supervisor
 
 # Install WP-CLI for safe serialized search-replace after SQL import.
 RUN curl -fsSL -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
@@ -35,6 +18,11 @@ RUN cp -a /usr/src/wordpress/. /var/www/html/
 
 # Keep a clean core snapshot used by entrypoint for restoring vendor polyfills if missing.
 RUN mkdir -p /opt/base-core/wp-includes && cp -a /var/www/html/wp-includes/. /opt/base-core/wp-includes/
+
+# Ensure php-fpm listens on TCP 9000 (for nginx upstream).
+RUN if [ -f /usr/local/etc/php-fpm.d/www.conf ]; then \
+      sed -i 's|^listen = .*|listen = 0.0.0.0:9000|' /usr/local/etc/php-fpm.d/www.conf; \
+    fi
 
 # Copy only the parts we actually want to override:
 # - wp-content (plugins/themes/uploads)
@@ -50,9 +38,17 @@ RUN mkdir -p /opt/www-seed && cp -a /var/www/html/wp-content/. /opt/www-seed/wp-
 # Ensure correct ownership for WordPress to write to wp-content
 RUN chown -R www-data:www-data /var/www/html
 
-EXPOSE 80
+# Nginx configuration and process supervisor.
+COPY docker/nginx.conf.template /etc/nginx/nginx.conf
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Restore startup script for DB import and runtime normalization.
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 EXPOSE 8080
 
-# Start Apache directly (disable custom bootstrap logic).
-CMD ["apache2-foreground"]
+# Run startup bootstrap, then start php-fpm + nginx.
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 

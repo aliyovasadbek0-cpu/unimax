@@ -11,7 +11,7 @@ http {
     client_max_body_size 64m;
 
     server {
-        listen 80 default_server;
+        listen 8080 default_server;
         server_name _; # Railway dynamic host
         root /var/www/html;
         index index.php index.html;
