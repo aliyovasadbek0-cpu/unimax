@@ -1,12 +1,10 @@
-FROM wordpress:6.5-php8.2-fpm
-
-ENV PHP_FPM_LISTEN=9000
+FROM wordpress:6.5-php8.2-apache
 ARG CACHEBUST=1
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends nginx supervisor ca-certificates default-mysql-client && \
+    apt-get install -y --no-install-recommends ca-certificates default-mysql-client && \
     rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /run/php /var/log/supervisor
+    mkdir -p /var/log/apache2
 
 # Install WP-CLI for safe serialized search-replace after SQL import.
 RUN curl -fsSL -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
@@ -14,7 +12,7 @@ RUN curl -fsSL -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/bui
 
 RUN echo "cachebust=${CACHEBUST}"
 
-# The fpm image keeps WordPress source under /usr/src/wordpress.
+# The image keeps WordPress source under /usr/src/wordpress.
 # Copy it into the web root so index.php and core files always exist.
 RUN cp -a /usr/src/wordpress/. /var/www/html/
 
@@ -35,26 +33,13 @@ RUN mkdir -p /opt/www-seed && cp -a /var/www/html/wp-content/. /opt/www-seed/wp-
 # Ensure correct ownership for WordPress to write to wp-content
 RUN chown -R www-data:www-data /var/www/html
 
-# Nginx config
-COPY docker/nginx.conf.template /etc/nginx/nginx.conf.template
-RUN cp /etc/nginx/nginx.conf.template /etc/nginx/nginx.conf
-
-
-# Supervisor config to run php-fpm and nginx together
-COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-# Ensure php-fpm listens on TCP 9000 (so nginx can reach it consistently)
-RUN if [ -f /usr/local/etc/php-fpm.d/www.conf ]; then \
-      sed -i 's|^listen = .*|listen = 0.0.0.0:9000|' /usr/local/etc/php-fpm.d/www.conf; \
-    fi
-
 # Startup script: imports SQL dump into DB on first boot (idempotent)
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 80
 
-# Run entrypoint, then start supervisor (CMD)
+# Run entrypoint, then start Apache (CMD)
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["apache2-foreground"]
 
