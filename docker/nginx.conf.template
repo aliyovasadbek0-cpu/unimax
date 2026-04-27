@@ -4,12 +4,14 @@ events { worker_connections 1024; }
 http {
     include       /etc/nginx/mime.types;
     default_type  application/octet-stream;
+    access_log /dev/stdout;
+    error_log /dev/stderr warn;
     sendfile      on;
     keepalive_timeout 65;
     client_max_body_size 64m;
 
     server {
-        listen ${PORT};
+        listen 80 default_server;
         server_name _; # Railway dynamic host
         root /var/www/html;
         index index.php index.html;
