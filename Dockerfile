@@ -50,14 +50,9 @@ RUN mkdir -p /opt/www-seed && cp -a /var/www/html/wp-content/. /opt/www-seed/wp-
 # Ensure correct ownership for WordPress to write to wp-content
 RUN chown -R www-data:www-data /var/www/html
 
-# Startup script: imports SQL dump into DB on first boot (idempotent)
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
 EXPOSE 80
 EXPOSE 8080
 
-# Run entrypoint, then start Apache (CMD)
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# Start Apache directly (disable custom bootstrap logic).
 CMD ["apache2-foreground"]
 
