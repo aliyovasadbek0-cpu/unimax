@@ -11,8 +11,9 @@ http {
     client_max_body_size 64m;
 
     server {
-        listen 8080 default_server;
-        server_name _; # Railway dynamic host
+        # Replaced at boot by entrypoint.sh from Railway $PORT (default 8080).
+        listen $PORT default_server;
+        server_name _;
         root /var/www/html;
         index index.php index.html;
 
@@ -31,6 +32,8 @@ http {
         location ~ \.php$ {
             include        fastcgi_params;
             fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            fastcgi_param  HTTP_X_FORWARDED_PROTO $http_x_forwarded_proto;
+            fastcgi_param  HTTP_X_FORWARDED_HOST  $http_x_forwarded_host;
             fastcgi_pass   127.0.0.1:9000;
             fastcgi_read_timeout 300;
             fastcgi_buffers 16 16k;

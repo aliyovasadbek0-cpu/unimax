@@ -2,7 +2,7 @@ FROM wordpress:6.5-php8.2-fpm
 ARG CACHEBUST=1
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends nginx supervisor ca-certificates default-mysql-client && \
+    apt-get install -y --no-install-recommends nginx supervisor gettext-base ca-certificates default-mysql-client && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p /run/php /var/log/supervisor
 
@@ -38,14 +38,15 @@ RUN mkdir -p /opt/www-seed && cp -a /var/www/html/wp-content/. /opt/www-seed/wp-
 # Ensure correct ownership for WordPress to write to wp-content
 RUN chown -R www-data:www-data /var/www/html
 
-# Nginx configuration and process supervisor.
-COPY docker/nginx.conf.template /etc/nginx/nginx.conf
+# Nginx template (PORT substituted at container start — must match Railway $PORT).
+COPY docker/nginx.conf.template /etc/nginx/nginx.conf.template
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Restore startup script for DB import and runtime normalization.
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+ENV PORT=8080
 EXPOSE 8080
 
 # Run startup bootstrap, then start php-fpm + nginx.

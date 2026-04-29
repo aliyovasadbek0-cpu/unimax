@@ -218,16 +218,6 @@ finalize_wp_runtime() {
   wp rewrite flush --hard --allow-root --path=/var/www/html >/dev/null 2>&1 || true
 }
 
-ensure_apache_single_mpm() {
-  # Runtime guard: keep only prefork MPM enabled to avoid AH00534 crash loops.
-  if command -v a2dismod >/dev/null 2>&1; then
-    a2dismod mpm_event mpm_worker >/dev/null 2>&1 || true
-  fi
-  if command -v a2enmod >/dev/null 2>&1; then
-    a2enmod mpm_prefork >/dev/null 2>&1 || true
-  fi
-}
-
 disable_all_plugins_safety_mode() {
   # Safety mode: if broken plugins still interfere, force-disable all plugins.
   if ! command -v wp >/dev/null 2>&1; then
@@ -246,8 +236,19 @@ rewrite_old_urls_in_database
 rewrite_old_asset_urls
 finalize_wp_runtime
 force_product_background_fallbacks
-ensure_apache_single_mpm
 disable_all_plugins_safety_mode
+
+# Nginx must listen on Railway's $PORT (public routing); default 8080.
+PORT="${PORT:-8080}"
+export PORT
+if [ -f /etc/nginx/nginx.conf.template ]; then
+  if command -v envsubst >/dev/null 2>&1; then
+    envsubst 'PORT' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
+  else
+    sed "s/\\\$PORT/${PORT}/g" /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
+  fi
+fi
+echo "Nginx listen port (Railway PORT): ${PORT}"
 
 exec "$@"
 
