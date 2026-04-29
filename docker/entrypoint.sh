@@ -218,14 +218,6 @@ finalize_wp_runtime() {
   wp rewrite flush --hard --allow-root --path=/var/www/html >/dev/null 2>&1 || true
 }
 
-disable_all_plugins_safety_mode() {
-  # Safety mode: if broken plugins still interfere, force-disable all plugins.
-  if ! command -v wp >/dev/null 2>&1; then
-    return 0
-  fi
-  wp option update active_plugins '[]' --allow-root --path=/var/www/html >/dev/null 2>&1 || true
-}
-
 write_nginx_conf() {
   PORT="${PORT:-8080}"
   export PORT
@@ -245,7 +237,6 @@ rewrite_old_urls_in_database
 rewrite_old_asset_urls
 finalize_wp_runtime
 force_product_background_fallbacks
-disable_all_plugins_safety_mode
 
 write_nginx_conf
 

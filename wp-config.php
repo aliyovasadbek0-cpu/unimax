@@ -11,9 +11,16 @@ if ( isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FO
 	$_SERVER['HTTPS'] = 'on';
 }
 
-// Fixed production URL on Railway.
-define( 'WP_HOME', 'https://unimax-production-c86b.up.railway.app' );
-define( 'WP_SITEURL', 'https://unimax-production-c86b.up.railway.app' );
+// Site URL: prefer Railway-assigned public domain, else fixed production URL.
+$wp_railway_domain = getenv( 'RAILWAY_PUBLIC_DOMAIN' );
+if ( is_string( $wp_railway_domain ) && $wp_railway_domain !== '' ) {
+	$wp_public = 'https://' . preg_replace( '#^https?://#i', '', $wp_railway_domain );
+	define( 'WP_HOME', $wp_public );
+	define( 'WP_SITEURL', $wp_public );
+} else {
+	define( 'WP_HOME', 'https://unimax-production-c86b.up.railway.app' );
+	define( 'WP_SITEURL', 'https://unimax-production-c86b.up.railway.app' );
+}
 
 /**
  * Основные параметры WordPress.

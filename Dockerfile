@@ -35,6 +35,7 @@ COPY docker/entrypoint.sh /usr/local/bin/custom-entrypoint.sh
 RUN chmod +x /usr/local/bin/custom-entrypoint.sh
 
 ENV PORT=8080
+EXPOSE 80
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/custom-entrypoint.sh"]
