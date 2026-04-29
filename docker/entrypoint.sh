@@ -226,6 +226,19 @@ disable_all_plugins_safety_mode() {
   wp option update active_plugins '[]' --allow-root --path=/var/www/html >/dev/null 2>&1 || true
 }
 
+# Match Apache to Railway $PORT before the official WordPress entrypoint starts Apache.
+configure_apache_port() {
+  PORT="${PORT:-8080}"
+  export PORT
+  if [ -f /etc/apache2/ports.conf ]; then
+    sed -ri "s/^Listen[[:space:]]+.*/Listen ${PORT}/" /etc/apache2/ports.conf
+  fi
+  if [ -f /etc/apache2/sites-available/000-default.conf ]; then
+    sed -ri "s/<VirtualHost[[:space:]]+\*:([0-9]+)>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-available/000-default.conf
+  fi
+  echo "Apache Listen / VirtualHost port: ${PORT}"
+}
+
 echo "Waiting for MySQL..."
 wait_for_mysql
 ensure_wp_core_files
@@ -238,22 +251,15 @@ finalize_wp_runtime
 force_product_background_fallbacks
 disable_all_plugins_safety_mode
 
-# Nginx must listen on Railway's PORT (public routing); default 8080.
-# Use a plain placeholder (not $PORT): nginx treats unresolved $PORT as a hostname and fails.
-PORT="${PORT:-8080}"
-export PORT
-if [ -f /etc/nginx/nginx.conf.template ]; then
-  sed "s|__NGINX_HTTP_PORT__|${PORT}|g" /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
-fi
-echo "Nginx listen port (Railway PORT): ${PORT}"
+configure_apache_port
 
-# Prove nginx answers inside the container (helps separate Railway routing vs app).
-if command -v curl >/dev/null 2>&1; then
-  h1="$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/health" 2>/dev/null || echo err)"
-  h2="$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:80/health" 2>/dev/null || echo err)"
-  h3="$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/" 2>/dev/null || echo err)"
-  echo "Self-test /health on :${PORT} -> HTTP ${h1}; /health on :80 -> HTTP ${h2}; / on :${PORT} -> HTTP ${h3}"
+# Official WordPress image entrypoint (handles Apache, permissions, first-run logic).
+WP_ENTRY="/usr/local/bin/docker-entrypoint.sh"
+if [ -x "$WP_ENTRY" ]; then
+  exec "$WP_ENTRY" "$@"
 fi
-
+if [ -x /docker-entrypoint.sh ]; then
+  exec /docker-entrypoint.sh "$@"
+fi
 exec "$@"
 
