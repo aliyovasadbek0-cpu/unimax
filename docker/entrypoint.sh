@@ -247,5 +247,13 @@ if [ -f /etc/nginx/nginx.conf.template ]; then
 fi
 echo "Nginx listen port (Railway PORT): ${PORT}"
 
+# Prove nginx answers inside the container (helps separate Railway routing vs app).
+if command -v curl >/dev/null 2>&1; then
+  h1="$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/health" 2>/dev/null || echo err)"
+  h2="$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:80/health" 2>/dev/null || echo err)"
+  h3="$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/" 2>/dev/null || echo err)"
+  echo "Self-test /health on :${PORT} -> HTTP ${h1}; /health on :80 -> HTTP ${h2}; / on :${PORT} -> HTTP ${h3}"
+fi
+
 exec "$@"
 
