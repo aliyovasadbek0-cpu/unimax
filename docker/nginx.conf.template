@@ -11,9 +11,8 @@ http {
     client_max_body_size 64m;
 
     server {
-        # Railway forwards to $PORT; also bind :80 in case the mesh hits that port.
+        # Port injected at container start (Railway $PORT).
         listen __NGINX_HTTP_PORT__ default_server;
-        listen 80;
         server_name _;
         root /var/www/html;
         index index.php index.html;

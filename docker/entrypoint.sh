@@ -226,17 +226,13 @@ disable_all_plugins_safety_mode() {
   wp option update active_plugins '[]' --allow-root --path=/var/www/html >/dev/null 2>&1 || true
 }
 
-# Match Apache to Railway $PORT before the official WordPress entrypoint starts Apache.
-configure_apache_port() {
+write_nginx_conf() {
   PORT="${PORT:-8080}"
   export PORT
-  if [ -f /etc/apache2/ports.conf ]; then
-    sed -ri "s/^Listen[[:space:]]+.*/Listen ${PORT}/" /etc/apache2/ports.conf
+  if [ -f /etc/nginx/nginx.conf.template ]; then
+    sed "s|__NGINX_HTTP_PORT__|${PORT}|g" /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
   fi
-  if [ -f /etc/apache2/sites-available/000-default.conf ]; then
-    sed -ri "s/<VirtualHost[[:space:]]+\*:([0-9]+)>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-available/000-default.conf
-  fi
-  echo "Apache Listen / VirtualHost port: ${PORT}"
+  echo "Nginx listen port (Railway PORT): ${PORT}"
 }
 
 echo "Waiting for MySQL..."
@@ -251,15 +247,7 @@ finalize_wp_runtime
 force_product_background_fallbacks
 disable_all_plugins_safety_mode
 
-configure_apache_port
+write_nginx_conf
 
-# Official WordPress image entrypoint (handles Apache, permissions, first-run logic).
-WP_ENTRY="/usr/local/bin/docker-entrypoint.sh"
-if [ -x "$WP_ENTRY" ]; then
-  exec "$WP_ENTRY" "$@"
-fi
-if [ -x /docker-entrypoint.sh ]; then
-  exec /docker-entrypoint.sh "$@"
-fi
 exec "$@"
 
