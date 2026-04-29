@@ -238,15 +238,12 @@ finalize_wp_runtime
 force_product_background_fallbacks
 disable_all_plugins_safety_mode
 
-# Nginx must listen on Railway's $PORT (public routing); default 8080.
+# Nginx must listen on Railway's PORT (public routing); default 8080.
+# Use a plain placeholder (not $PORT): nginx treats unresolved $PORT as a hostname and fails.
 PORT="${PORT:-8080}"
 export PORT
 if [ -f /etc/nginx/nginx.conf.template ]; then
-  if command -v envsubst >/dev/null 2>&1; then
-    envsubst 'PORT' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
-  else
-    sed "s/\\\$PORT/${PORT}/g" /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
-  fi
+  sed "s|__NGINX_HTTP_PORT__|${PORT}|g" /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
 fi
 echo "Nginx listen port (Railway PORT): ${PORT}"
 
